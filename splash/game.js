@@ -29,8 +29,8 @@ let dpr = 1;
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
-  width = window.innerWidth;
-  height = window.innerHeight;
+  width = Math.max(320, window.innerWidth);
+  height = Math.max(480, window.innerHeight);
   canvas.width = Math.floor(width * dpr);
   canvas.height = Math.floor(height * dpr);
   canvas.style.width = `${width}px`;
@@ -64,12 +64,16 @@ function rand(min, max) {
 }
 
 function spawnSplatch(gentle = false) {
-  const radius = rand(20, Math.min(58 + state.wave * 2, 88));
+  const largestRadius = Math.min(58 + state.wave * 2, 88, width * 0.18, height * 0.18);
+  const radius = rand(20, Math.max(26, largestRadius));
   const taps = Math.max(1, Math.ceil(radius / 22) + Math.floor(state.wave / 4));
   const margin = radius + 14;
+  const minY = Math.max(92, margin);
+  const maxX = Math.max(margin, width - margin);
+  const maxY = Math.max(minY, height - margin);
   state.splatches.push({
-    x: rand(margin, width - margin),
-    y: rand(Math.max(92, margin), height - margin),
+    x: rand(margin, maxX),
+    y: rand(minY, maxY),
     radius,
     maxRadius: radius,
     taps,
@@ -126,7 +130,8 @@ function burst(x, y, count, hue) {
 function onPointerDown(event) {
   if (!state.running || state.paused || state.over) return;
   event.preventDefault();
-  hitSplatch(event.clientX, event.clientY);
+  const rect = canvas.getBoundingClientRect();
+  hitSplatch(event.clientX - rect.left, event.clientY - rect.top);
 }
 
 function update(dt) {
@@ -256,6 +261,7 @@ function drawLives() {
 
 function drawIdle(time) {
   drawBackground(time);
+  drawBursts();
   const demo = {
     x: width / 2,
     y: height * 0.36,
@@ -312,7 +318,15 @@ pauseButton.addEventListener("click", () => {
   pauseButton.setAttribute("aria-pressed", String(state.paused));
 });
 canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
-window.addEventListener("resize", resize);
+window.addEventListener("resize", () => {
+  resize();
+  state.splatches = state.splatches.filter((splatch) => (
+    splatch.x >= splatch.radius &&
+    splatch.x <= width - splatch.radius &&
+    splatch.y >= splatch.radius &&
+    splatch.y <= height - splatch.radius
+  ));
+});
 
 resize();
 requestAnimationFrame(frame);
